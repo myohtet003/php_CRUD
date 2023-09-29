@@ -8,6 +8,7 @@ $path = $urlArr['path'];
 const Routes = [
 	"/" => "page@home",
 	"/about-us" => "page@about",
+	"/show-session" => "page@ss",
 
 	//list
 	"/list" => "list@index",

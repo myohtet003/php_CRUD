@@ -1,12 +1,13 @@
 <?php
 
-function dd($data,$showType = false):void{
+function dd($data, $showType = false): void
+{
     echo "<pre style='background-color: #1d1d1d;color: #cdcdcd; padding: 20px; margin: 10px; border-radius: 10px; line-height: 1.2rem;'>";
-    if($showType){
+    if ($showType) {
         var_dump($data);
-    }else{
+    } else {
         print_r($data);
-    }   
+    }
     echo  "</pre>";
     die();
 }
@@ -22,79 +23,157 @@ function url(string $path = null): string
     return $url;
 }
 
-function view(string $viewName,array $data = null): void 
+function view(string $viewName, array $data = null): void
 {
     //array to variable
-    if(!is_null($data)){
-        foreach($data as $key => $value){
+    if (!is_null($data)) {
+        foreach ($data as $key => $value) {
             //dynamic variable name
-             ${$key} = $value;
+            ${$key} = $value;
         }
     }
-	require_once  viewDir."/$viewName.view.php";
+    require_once  viewDir . "/$viewName.view.php";
 }
 
-function controller( string $controllerName):void{
+function controller(string $controllerName): void
+{
     //string to array
     //list@index => ["list","index"]
-    $controllerNameArray = explode("@",$controllerName);
-    require_once controllerDir."/$controllerNameArray[0].controller.php";
+    $controllerNameArray = explode("@", $controllerName);
+    require_once controllerDir . "/$controllerNameArray[0].controller.php";
     //dynamic fun call
     call_user_func($controllerNameArray[1]);
 }
 
-function route(string $path,array $queries = null) :string {
+function route(string $path, array $queries = null): string
+{
     $url = url($path);
-    if(!is_null($queries)){
+    if (!is_null($queries)) {
 
-        $url .="?". http_build_query($queries);
+        $url .= "?" . http_build_query($queries);
     }
     return $url;
 }
 
-function redirect(string $url ,string $message): void{
-    if(!is_null($message)) setSession($message);
-    header("Location:".$url);
+function redirect(string $url, string $message = null): void
+{
+    if (!is_null($message)) setSession($message);
+    header("Location:" . $url);
 }
 
-function checkRequestMethod(string $methodName){
+function redirectBack(string $message = null): void{
+    redirect($_SERVER['HTTP_REFERER'],$message);
+    
+}
+
+function checkRequestMethod(string $methodName)
+{
     $result = false;
     $methodName = strtoupper($methodName);
     $serverRequestMethod = $_SERVER["REQUEST_METHOD"];
-    if($methodName === "POST" && $serverRequestMethod === "POST"){
+    if ($methodName === "POST" && $serverRequestMethod === "POST") {
         $result = true;
-    }
-    elseif($methodName === "PUT" && ( $serverRequestMethod === "PUT" || ($serverRequestMethod === "POST" && !empty($_POST["_method"]) && strtoupper($_POST["_method"]) === "PUT"))) 
-    {
+    } elseif ($methodName === "PUT" && ($serverRequestMethod === "PUT" || ($serverRequestMethod === "POST" && !empty($_POST["_method"]) && strtoupper($_POST["_method"]) === "PUT"))) {
         $result = true;
-    }elseif($methodName === "DELETE" && ($serverRequestMethod === "DELETE" || ($serverRequestMethod === "POST" && !empty($_POST["_method"]) && strtoupper($_POST["_method"]) === "DELETE"))){
+    } elseif ($methodName === "DELETE" && ($serverRequestMethod === "DELETE" || ($serverRequestMethod === "POST" && !empty($_POST["_method"]) && strtoupper($_POST["_method"]) === "DELETE"))) {
         $result = true;
     }
     return $result;
 }
 
-function alert(string $message,string $color = "success"):string{
+function alert(string $message, string $color = "success"): string
+{
     return "<div class='alert alert-$color' >$message</div>";
 }
 
-function sanitizer($str){
-	$str = strip_tags($str);
-	return $str;
+function sanitizer($str,bool $strip=false)
+{
+    if($strip){
+    $str = strip_tags($str);
+    }
+    $str = trim($str);
+    $str = htmlentities($str, ENT_QUOTES);
+    $str = stripcslashes($str);
+    return $str;
 }
+
+
+// validation function start
+
+function setError(string $key,string $message): void
+{
+
+    $_SESSION["error"][$key] = $message;
+}
+
+function hasError(string $key): bool
+{
+    if (!empty($_SESSION["error"][$key])) return true;
+    return false;
+}
+
+function showError(string $key): string
+{
+    $message = $_SESSION["error"][$key];
+    unset($_SESSION["error"][$key]);
+    return $message;
+}
+
+function old(string $key):string|null{
+    if(isset($_SESSION['old'][$key])){
+        $data = $_SESSION["old"][$key];
+        unset($_SESSION["old"][$key]);
+        return $data;
+    }
+    return null;
+}
+
+function validationStart():void{
+    unset($_SESSION['old']);
+    unset($_SESSION['error']);
+    $_SESSION["old"] = $_POST;
+}
+
+function validationEnd( bool $isApi = false ):void{
+    if(hasSession("error")){
+        if($isApi){
+            responseJson([
+                "status" => false,
+                "errors" => showSession('error')
+            ]);
+        }else{
+            // dd($_SERVER);
+            redirectBack();
+        }
+
+        die();
+
+        
+    }else{
+        unset($_SESSION['old']);
+    }
+
+}
+
+// validation function end
+
 
 //session function start
 
-function setSession(string $message, string $key = "message"):void{
+function setSession(string $message, string $key = "message"): void
+{
     //$_session[key] = value;
     $_SESSION[$key] = $message;
 }
 
-function hasSession(string $key = "message"):bool{
-    if(!empty($_SESSION[$key])) return true;
+function hasSession(string $key = "message"): bool
+{
+    if (!empty($_SESSION[$key])) return true;
     return false;
 }
 
-function showSession(string $key = "message"):string{
+function showSession(string $key = "message"): string|array
+{
     $message = $_SESSION[$key];
     unset($_SESSION[$key]);
     return $message;
@@ -105,68 +184,72 @@ function showSession(string $key = "message"):string{
 
 //database functions start
 
- function run(string $sql, bool $closeConnection = false):object|bool{
-    try{
-        $query = mysqli_query($GLOBALS["conn"],$sql);
-        if($closeConnection) mysqli_close($GLOBALS["conn"]);
+function run(string $sql, bool $closeConnection = false): object|bool
+{
+    try {
+        $query = mysqli_query($GLOBALS["conn"], $sql);
+        if ($closeConnection) mysqli_close($GLOBALS["conn"]);
         return $query;
-    }catch(Exception $e){
+    } catch (Exception $e) {
         dd($e);
-    }  
- }
+    }
+};
 
- function all(string $sql):array{
+function all(string $sql): array
+{
     $lists = [];
     $query = run($sql);
-	while($row = mysqli_fetch_assoc($query)){
-		$lists[] = $row;
-	}
+    while ($row = mysqli_fetch_assoc($query)) {
+        $lists[] = $row;
+    }
     return $lists;
- }
+}
 
- function first(string $sql):array{
+function first(string $sql): array
+{
     $query = run($sql);
     $list = mysqli_fetch_assoc($query);
     return $list;
- }
+}
 
- function paginate($sql, $limit = 10) {
-    $total = first(str_replace("*","COUNT(id) AS total",$sql))["total"];
-	// $limit = 10;
-	$totalPages = ceil($total / $limit);
-	$currentPage = isset($_GET['page']) ? $_GET['page'] : 1;
-	$offset = ($currentPage - 1) * $limit;
+function paginate($sql, $limit = 10)
+{
+    $total = first(str_replace("*", "COUNT(id) AS total", $sql))["total"];
+    // $limit = 10;
+    $totalPages = ceil($total / $limit);
+    $currentPage = isset($_GET['page']) ? $_GET['page'] : 1;
+    $offset = ($currentPage - 1) * $limit;
 
-	$sql .= " LIMIT $offset, $limit";
+    $sql .= " LIMIT $offset, $limit";
 
-	$links = [];
-	for($i = 1; $i <= $totalPages; $i++) {
+    $links = [];
+    for ($i = 1; $i <= $totalPages; $i++) {
 
-		$queries = $_GET;
-		$queries["page"] = $i;
+        $queries = $_GET;
+        $queries["page"] = $i;
 
-		$url = url().$GLOBALS['path']."?".http_build_query($queries);
+        $url = url() . $GLOBALS['path'] . "?" . http_build_query($queries);
 
-		$links[] = [
-			"url" =>$url,
-			"is_active" => $i == $currentPage ? "background:#0b5ed7;color:#fff;" : "",
-			"page_number" => $i
-		];
-	}
+        $links[] = [
+            "url" => $url,
+            "is_active" => $i == $currentPage ? "background:#0b5ed7;color:#fff;" : "",
+            "page_number" => $i
+        ];
+    }
 
-	$lists = [
-		"total" => $total,
-		"limit" => $limit,
-		"total_page" => $totalPages,
-		"current_page" => $currentPage,
-		"data" => all($sql),
-		"links" => $links
-	];
+    $lists = [
+        "total" => $total,
+        "limit" => $limit,
+        "total_page" => $totalPages,
+        "current_page" => $currentPage,
+        "data" => all($sql),
+        "links" => $links
+    ];
     return $lists;
+}
 
- }
-
- function paginator($lists) {
+function paginator($lists)
+{
 
     $links = "";
 
@@ -188,40 +271,41 @@ function showSession(string $key = "message"):string{
 //logger with color https://i.stack.imgur.com/HFSl1.png
 function logger(string $message, int $colorCode = 32): void
 {
-	echo " \e[39m[LOG]". " \e[{$colorCode}m" .$message."\n";
+    echo " \e[39m[LOG]" . " \e[{$colorCode}m" . $message . "\n";
 }
 
-function responseJson(mixed $data,int $status = 200): string{
-	header("Content-type:Application/json");
-	http_response_code($status);
-	if(is_array($data)){
-		return print(json_encode($data));
-	}
-	return print(json_encode(["message" => $data]));
+function responseJson(mixed $data, int $status = 200): string
+{
+    header("Content-type:Application/json");
+    http_response_code($status);
+    if (is_array($data)) {
+        return print(json_encode($data));
+    }
+    return print(json_encode(["message" => $data]));
 }
 
-function showDateTime(string $timestamp, string $format = "j M Y" ) :string
+function showDateTime(string $timestamp, string $format = "j M Y"): string
 {
     return date($format, strtotime($timestamp));
 }
 
-function createTable($tableName,...$columns) {
+function createTable($tableName, ...$columns)
+{
     $sql = "DROP TABLE IF EXISTS $tableName";
     run($sql);
-    logger($tableName . " table drop successfully",93);
+    logger($tableName . " table drop successfully", 93);
 
     $sql = "CREATE TABLE $tableName (
         `id` int(11) NOT NULL AUTO_INCREMENT,
-        ".join(",",$columns).",
+        " . join(",", $columns) . ",
         `updated_at` timestamp NOT NULL DEFAULT current_timestamp(),
         `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
         PRIMARY KEY (`id`)
       ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;";
-    
-      run($sql);
-      logger($tableName . " table create successfully");
-}
 
+    run($sql);
+    logger($tableName . " table create successfully");
+}
 
 
 

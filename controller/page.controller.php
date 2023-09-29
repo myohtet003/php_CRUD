@@ -8,4 +8,11 @@
 		view("about");
 	}
 
+	function ss(){
+		// session_unset();
+		dd($_SESSION);
+	}
+
 ?>
+
+

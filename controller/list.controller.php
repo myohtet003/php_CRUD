@@ -4,8 +4,9 @@ function index() {
 
 	$sql = "SELECT * FROM list";
 	if(!empty($_GET["q"])){
-		$q = $_GET["q"];
+		$q = sanitizer($_GET["q"],true);
 		$sql .= " WHERE name LIKE '%$q%'";
+		// dd($sql);
 	}
 
 	//formula for pagination 
@@ -38,7 +39,7 @@ function create() {
 }
 
 function store() {
-	$name = $_POST['name'];
+	$name =sanitizer($_POST['name']);
 	$money = $_POST['money'];
 	$sql = "INSERT INTO list (name,money) VALUES ('$name',$money)";
 	run($sql);
